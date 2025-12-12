@@ -1,231 +1,245 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>DAP - Verifier</title>
-    <style>
-        body { background-color: #0f172a; color: #e2e8f0; font-family: sans-serif; margin: 0; padding: 20px; }
-        .container { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        h1 { grid-column: 1 / -1; border-bottom: 1px solid #334155; padding-bottom: 10px; margin-bottom: 20px; }
+{% extends "base.html" %}
 
-        .card { background-color: #1e293b; padding: 20px; border-radius: 8px; border: 1px solid #334155; }
-        .label { display: block; font-size: 0.85em; color: #94a3b8; margin-bottom: 5px; font-weight: bold; }
+{% block title %}DAP — Verifier (Auditoría){% endblock %}
 
-        input, textarea { 
-            width: 100%; box-sizing: border-box; background: #0f172a; border: 1px solid #334155; 
-            color: white; padding: 10px; border-radius: 4px; margin-bottom: 15px; font-family: monospace;
-        }
-        
-        textarea { 
-            min-height: 120px; 
-            word-break: break-all; 
-            resize: vertical;
-        }
+{% block content %}
+<div class="grid grid-2">
+    
+    <div class="card">
+        <div class="card-pad">
+            <h2>🔎 Auditoría de Credenciales</h2>
+            <p class="muted" style="margin-bottom: 25px;">
+                Herramienta para jueces y terceros. Verifica la autenticidad, integridad y vigencia de una credencial.
+            </p>
 
-        .btn { background: #2563eb; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 1em; width: 100%; transition: background 0.2s; }
-        .btn:hover { background: #1d4ed8; }
-        .btn-secondary { background: #475569; margin-bottom: 10px; }
-        .btn-secondary:hover { background: #334155; }
-
-        /* Resultado */
-        .result-box {
-            background: #0f172a;
-            border: 1px solid #334155;
-            padding: 15px;
-            border-radius: 4px;
-            min-height: 200px;
-        }
-        
-        .status-badge {
-            display: inline-block;
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-weight: bold;
-            font-size: 1.2em;
-            margin-bottom: 15px;
-            background: #334155;
-            color: #94a3b8;
-        }
-        .status-valid { background: #064e3b; color: #4ade80; border: 1px solid #059669; }
-        .status-invalid { background: #7f1d1d; color: #f87171; border: 1px solid #dc2626; }
-
-        .check-item { margin-bottom: 5px; display: flex; justify-content: space-between; border-bottom: 1px solid #1e293b; padding-bottom: 2px;}
-        .check-key { color: #94a3b8; }
-        .check-val { font-family: monospace; }
-        .check-ok { color: #4ade80; }
-        .check-err { color: #f87171; }
-
-    </style>
-</head>
-<body>
-
-    <h1>Verifier <span style="font-size:0.5em; color:#64748b;">| Auditoría de Credenciales</span></h1>
-
-    <div class="container">
-        
-        <div class="card">
-            
-            <div style="border-bottom: 1px solid #334155; padding-bottom: 15px; margin-bottom: 15px;">
-                <div class="label">PASO 1: Obtener Reto (Anti-Replay)</div>
-                <div style="display: flex; gap: 10px;">
-                    <button class="btn btn-secondary" style="width: auto;" onclick="getChallenge()">1. Pedir Challenge</button>
-                    <input type="text" id="nonceInput" placeholder="Nonce..." readonly style="margin-bottom:0;">
+            <div style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; margin-bottom: 25px; border: 1px dashed var(--border);">
+                <label style="color: var(--accent);">PASO 1: Protocolo Anti-Replay</label>
+                <div style="display: flex; gap: 10px; align-items: flex-end;">
+                    <div style="flex-grow: 1;">
+                        <span class="muted" style="font-size: 0.8em;">Generar un "Reto" (Nonce) criptográfico</span>
+                        <input type="text" id="nonceInput" placeholder="Pulsa el botón para generar..." readonly 
+                               style="background: transparent; border: none; padding: 0; color: #fff; font-family: monospace; font-size: 1.1em; margin-top: 5px;">
+                    </div>
+                    <button class="btn ok" onclick="getChallenge()" style="padding: 8px 12px; font-size: 0.85em;">
+                        🎲 1. Pedir Challenge
+                    </button>
                 </div>
             </div>
 
-            <div>
-                <div class="label">PASO 2: Token a Verificar</div>
-                <textarea id="tokenInput" placeholder="Pega aquí el VC-JWT completo (eyJ...)"></textarea>
-                
-                <button class="btn" onclick="verifyCredential()">2. Verificar Integridad y Validez</button>
+            <div class="form-group">
+                <label for="tokenInput">PASO 2: Token a Verificar (VC-JWT)</label>
+                <textarea id="tokenInput" placeholder="Pega aquí el token proporcionado por el atleta (eyJ...)" 
+                          style="font-family: monospace; font-size: 0.85em; color: #a5b4fc;"></textarea>
             </div>
-        </div>
 
-        <div class="card">
-            <div class="label">Informe de Verificación</div>
-            <div class="result-box">
-                <div id="statusBadge" class="status-badge">ESPERANDO DATOS</div>
+            <button class="btn primary" style="width: 100%; margin-top: 10px;" onclick="verifyCredential()">
+                🔍 2. Verificar Integridad
+            </button>
+        </div>
+    </div>
+
+    <div class="card" id="reportCard" style="opacity: 0.5; pointer-events: none; transition: opacity 0.3s;">
+        <div class="card-pad">
+            <h2>📋 Informe de Validación</h2>
+            
+            <div style="text-align: center; margin: 20px 0;">
+                <span id="statusBadge" class="badge" style="font-size: 1.2em; padding: 8px 20px;">ESPERANDO DATOS</span>
+            </div>
+
+            <div id="checksContainer" class="hidden" style="margin-top: 30px;">
                 
-                <div id="checksContainer" style="display:none;">
-                    <div class="check-item">
-                        <span class="check-key">Firma Criptográfica (RS256)</span>
-                        <span id="resSig" class="check-val">--</span>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 5px;">
+                    <span class="muted">1. Firma Criptográfica (RS256)</span>
+                    <strong id="checkSig" style="color: var(--muted);">--</strong>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 5px;">
+                    <span class="muted">2. Nonce (Anti-Replay)</span>
+                    <strong id="checkNonce" style="color: var(--muted);">--</strong>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 5px;">
+                    <span class="muted">3. Estado (Revocación)</span>
+                    <strong id="checkStatus" style="color: var(--muted);">--</strong>
+                </div>
+
+                <div style="background: #020617; padding: 15px; border-radius: 8px; border: 1px solid var(--border);">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <span class="muted" style="font-size: 0.8em;">EMISOR (DID)</span>
+                        <code id="resIss" style="font-size: 0.8em; color: var(--accent);">--</code>
                     </div>
-                    <div class="check-item">
-                        <span class="check-key">Nonce (Anti-Replay)</span>
-                        <span id="resNonce" class="check-val">--</span>
-                    </div>
-                    <div class="check-item">
-                        <span class="check-key">Emisor (DID)</span>
-                        <span id="resIss" class="check-val">--</span>
-                    </div>
-                    <div class="check-item">
-                        <span class="check-key">ID Credencial (JTI)</span>
-                        <span id="resJti" class="check-val">--</span>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                        <span class="muted" style="font-size: 0.8em;">CREDENTIAL ID (JTI)</span>
+                        <code id="resJti" style="font-size: 0.8em;">--</code>
                     </div>
                     
-                    <div style="margin-top: 20px;">
-                        <div class="label">Datos Extraídos / Errores:</div>
-                        <pre id="claimsBox" style="color: #cbd5e1; font-size: 0.9em; white-space: pre-wrap;"></pre>
-                    </div>
+                    <label>Datos Certificados (Claims)</label>
+                    <pre id="claimsBox" style="color: #cbd5e1; font-size: 0.85em; white-space: pre-wrap; margin: 0;">--</pre>
                 </div>
+
             </div>
         </div>
     </div>
 
-    <script>
-        // 1. Obtener Challenge
-        async function getChallenge() {
-            try {
-                const res = await fetch('/verifier/challenge?ttl=120');
-                const data = await res.json();
-                document.getElementById('nonceInput').value = data.nonce;
-                
-                // Visual reset
-                document.getElementById('statusBadge').innerText = "LISTO PARA VERIFICAR";
-                document.getElementById('statusBadge').className = "status-badge";
-                document.getElementById('statusBadge').style.background = "#0f172a";
-            } catch(e) {
-                alert("Error conectando con servidor");
-            }
-        }
+</div>
+{% endblock %}
 
-        // 2. Verificar
-        async function verifyCredential() {
-            const token = document.getElementById('tokenInput').value.trim();
-            const nonce = document.getElementById('nonceInput').value.trim();
+{% block scripts %}
+<script>
+    // 1. Obtener Challenge (Nonce)
+    async function getChallenge() {
+        const input = document.getElementById('nonceInput');
+        input.value = "Generando...";
+        input.style.color = "#fcd34d"; // Amarillo mientras carga
 
-            if(!token) return alert("Por favor pega un token");
-
-            // UI Loading
-            document.getElementById('statusBadge').innerText = "VERIFICANDO...";
+        try {
+            const res = await fetch('/verifier/challenge?ttl=120');
+            const data = await res.json();
             
-            try {
-                const res = await fetch('/verifier/verify', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ token: token, nonce: nonce || null })
-                });
-                const data = await res.json();
-
-                renderResult(data);
-
-            } catch(e) {
-                alert("Error en verificación: " + e.message);
-            }
-        }
-
-        function renderResult(data) {
-            const box = document.getElementById('checksContainer');
-            box.style.display = 'block';
-
-            const badge = document.getElementById('statusBadge');
-            const details = data.details || {};
-
-            // 1. Estado General
-            if(data.result === 'valid') {
-                badge.innerText = "VALID ✅";
-                badge.className = "status-badge status-valid";
-            } else {
-                badge.innerText = "INVALID ❌";
-                badge.className = "status-badge status-invalid";
-            }
-
-            // 2. Checks Individuales (Con protección contra nulos)
+            input.value = data.nonce;
+            input.style.color = "#4ade80"; // Verde al terminar
             
-            // Firma: si no viene el dato, asumimos error o desconocido, pero no explotamos
-            let sigText = details.error || (details.signature ? 'OK' : '--');
-            setCheck('resSig', details.signature === 'ok', sigText);
+            // Animación visual de foco en el siguiente paso
+            document.getElementById('tokenInput').focus();
             
-            // Nonce: si no viene el dato, ponemos '--'
-            let nonceText = details.nonce || '--';
-            let nonceOk = (details.nonce === 'ok' || details.nonce === 'skipped');
-            if (details.nonce === 'skipped') nonceText = "OMITIDO (Riesgo)";
+        } catch(e) {
+            alert("Error conectando con servidor");
+            input.value = "Error";
+            input.style.color = "#f87171";
+        }
+    }
+
+    // 2. Verificar Credencial
+    async function verifyCredential() {
+        const token = document.getElementById('tokenInput').value.trim();
+        const nonce = document.getElementById('nonceInput').value.trim();
+        const reportCard = document.getElementById('reportCard');
+        const badge = document.getElementById('statusBadge');
+
+        if(!token) return alert("Por favor pega un token VC-JWT para verificar.");
+
+        // UI Loading
+        reportCard.style.opacity = "1";
+        reportCard.style.pointerEvents = "auto";
+        badge.innerText = "AUDITANDO...";
+        badge.className = "badge"; // Reset colores
+        
+        try {
+            // Enviamos Token + Nonce (si existe)
+            // Si el usuario no pidió challenge, mandamos null y el backend saltará esa comprobación (o la marcará como skipped)
+            const payload = { token: token };
+            if (nonce && nonce !== "Generando..." && nonce !== "Error") {
+                payload.nonce = nonce;
+            }
+
+            const res = await fetch('/verifier/verify', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+
+            renderResult(data);
+
+        } catch(e) {
+            alert("Error crítico en verificación: " + e.message);
+            badge.innerText = "ERROR SISTEMA";
+            badge.classList.add("revoked");
+        }
+    }
+
+    function renderResult(data) {
+        const container = document.getElementById('checksContainer');
+        container.classList.remove('hidden');
+        container.classList.add('visible');
+
+        const badge = document.getElementById('statusBadge');
+        const details = data.details || {};
+        const isSuccess = (data.result === 'valid');
+
+        // 1. Estado General
+        if(isSuccess) {
+            badge.innerText = "VALID ✅";
+            badge.className = "badge valid";
+        } else {
+            badge.innerText = "INVALID ❌";
+            badge.className = "badge revoked";
+        }
+
+        // 2. Checks Individuales (Visualización Inteligente)
+        // Usamos los detalles devueltos o inferimos por el resultado global
+        
+        // Firma Criptográfica
+        updateCheck('checkSig', isSuccess || data.flag !== 'invalid_signature');
+        
+        // Nonce
+        if (data.flag === 'nonce_invalid' || data.flag === 'nonce_used' || data.flag === 'nonce_expired') {
+            updateCheck('checkNonce', false, "FALLO (Replay/Expirado)");
+        } else if (document.getElementById('nonceInput').value) {
+            updateCheck('checkNonce', true, "VERIFICADO");
+        } else {
+            updateCheck('checkNonce', true, "OMITIDO (Riesgo)");
+            document.getElementById('checkNonce').style.color = "#fcd34d"; // Amarillo warning
+        }
+
+        // Estado Revocación
+        if (data.flag === 'revoked') {
+            updateCheck('checkStatus', false, "REVOCADA");
+        } else if (isSuccess) {
+            updateCheck('checkStatus', true, "ACTIVA");
+        } else {
+            // Si falló antes (firma), no llegamos a mirar estado
+            updateCheck('checkStatus', false, "NO VERIFICADO");
+            document.getElementById('checkStatus').style.color = "var(--muted)";
+        }
+
+        // 3. Metadatos
+        document.getElementById('resIss').innerText = details.iss || 'Desconocido';
+        document.getElementById('resJti').innerText = details.jti || 'Desconocido';
+
+        // 4. Claims o Error
+        const box = document.getElementById('claimsBox');
+        if(isSuccess) {
+            // Decodificamos el payload para mostrar los datos de negocio
+            const payload = parseJwt(document.getElementById('tokenInput').value);
+            const subj = payload.vc ? payload.vc.credentialSubject : {};
+            box.innerText = JSON.stringify(subj, null, 2);
+            box.style.color = "#cbd5e1";
+        } else {
+            // Mostramos la razón del fallo
+            let errorMsg = "Motivo del rechazo: ";
+            if (data.flag) errorMsg += data.flag.toUpperCase();
+            if (details.msg) errorMsg += `\nDetalle: ${details.msg}`;
+            if (details.error) errorMsg += `\nError Técnico: ${details.error}`;
             
-            setCheck('resNonce', nonceOk, nonceText);
-
-            document.getElementById('resIss').innerText = details.iss || 'Desconocido';
-            document.getElementById('resJti').innerText = details.jti || 'Desconocido';
-
-            // 3. Flags de Error y Datos
-            if(data.flags && data.flags.length > 0) {
-                 // Si hay errores, mostramos los flags
-                 document.getElementById('claimsBox').innerText = "DETALLES DEL FALLO:\n" + JSON.stringify(data.flags, null, 2);
-                 
-                 // Si está revocado, mostramos un mensaje específico
-                 if (data.flags.includes("revoked")) {
-                    document.getElementById('claimsBox').innerText += "\n\n⚠️ Esta credencial fue anulada por el emisor.";
-                 }
-                 
-                 document.getElementById('claimsBox').style.color = "#f87171";
-            } else {
-                // Si es válido, decodificamos para mostrar datos bonitos
-                const payload = parseJwt(document.getElementById('tokenInput').value);
-                const subj = payload.vc ? payload.vc.credentialSubject : {};
-                document.getElementById('claimsBox').innerText = JSON.stringify(subj, null, 2);
-                document.getElementById('claimsBox').style.color = "#cbd5e1";
-            }
+            box.innerText = errorMsg;
+            box.style.color = "#f87171"; // Rojo
         }
+    }
 
-        function setCheck(id, isOk, text) {
-            const el = document.getElementById(id);
-            // PROTECCIÓN: Si text es null/undefined, usamos '--'
-            el.innerText = (text || '--').toUpperCase();
-            el.className = isOk ? "check-val check-ok" : "check-val check-err";
+    function updateCheck(elementId, isOk, customText=null) {
+        const el = document.getElementById(elementId);
+        if (isOk) {
+            el.innerText = customText || "OK";
+            el.style.color = "#4ade80"; // Verde
+        } else {
+            el.innerText = customText || "FALLO";
+            el.style.color = "#f87171"; // Rojo
         }
+    }
 
-        function parseJwt (token) {
-            try {
-                var base64Url = token.split('.')[1];
-                var base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-                var jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
-                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-                }).join(''));
-                return JSON.parse(jsonPayload);
-            } catch (e) {
-                return {};
-            }
+    // Helper para decodificar JWT en cliente (solo visualización)
+    function parseJwt (token) {
+        try {
+            var base64Url = token.split('.')[1];
+            var base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            var jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+            }).join(''));
+            return JSON.parse(jsonPayload);
+        } catch (e) {
+            return {};
         }
-    </script>
-</body>
-</html>
+    }
+</script>
+{% endblock %}
