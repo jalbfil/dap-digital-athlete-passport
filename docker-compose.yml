@@ -1,18 +1,43 @@
+version: "3.8"
+
 services:
-  dap-app:
+  dap-backend:
+    # Construir imagen usando el Dockerfile del directorio actual
     build: .
     container_name: dap_container
+    
+    # Mapeo de Puertos (Host:Contenedor)
     ports:
       - "8000:8000"
+    
+    # Volúmenes: Persistencia de datos y configuración
     volumes:
-      # Persistencia de la Base de Datos (se guarda fuera del contenedor)
+      # 1. Persistencia de BD: Evita perder usuarios al reiniciar el contenedor
       - ./dap_data:/app/dap_data
-      # Mapeamos las claves locales para no tener que regenerarlas
+      # 2. Claves Criptográficas: Inyectamos las claves generadas en el host
+      # Esto permite rotar claves sin reconstruir la imagen.
       - ./app/keys:/app/app/keys
+      # (Opcional) Descomentar para desarrollo "Hot Reload" (ver cambios sin rebuild)
+      # - ./app:/app/app
+    
+    # Variables de Entorno (Configuración dinámica)
     environment:
       - ADMIN_TOKEN=supersecreto123
+      # Usamos la ruta interna del contenedor para la BD
       - DATABASE_URL=sqlite+aiosqlite:///dap_data/dap.db
-      # Forzamos a Python a saber que en Linux Tesseract está en el PATH estándar
+      # Configuración Regional para Tesseract (OCR) y Logs
       - LC_ALL=C.UTF-8
       - LANG=C.UTF-8
+      # Evita que Python bufferice los logs (para verlos en tiempo real)
+      - PYTHONUNBUFFERED=1
+
+    # Política de Reinicio: Resiliencia ante fallos
     restart: unless-stopped
+
+    # Healthcheck: El orquestador verifica que la API responda
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
