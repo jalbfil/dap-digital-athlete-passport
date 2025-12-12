@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>DAP - Issuer</title>
+    <style>
+        /* Estilos oscuros simples tipo "Cyberpunk/Dashboard" */
+        body { background-color: #0f172a; color: #e2e8f0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+        h1 { grid-column: 1 / -1; border-bottom: 2px solid #334155; padding-bottom: 15px; margin-bottom: 30px; font-weight: 300; letter-spacing: 1px;}
+        h1 span { font-size: 0.6em; color: #94a3b8; margin-left: 10px; font-weight: 400;}
+
+        .card { background-color: #1e293b; padding: 25px; border-radius: 12px; border: 1px solid #334155; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); position: relative; transition: all 0.3s ease;}
+        .card:hover { border-color: #475569; }
+        
+        .label { display: block; font-size: 0.9em; color: #94a3b8; margin-bottom: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;}
+        
+        /* Inputs y Textareas */
+        input[type="text"], input[type="number"], textarea { 
+            width: 100%; box-sizing: border-box; background: #0f172a; border: 1px solid #334155; 
+            color: #10b981; font-family: 'Consolas', 'Monaco', monospace; padding: 12px; border-radius: 6px; margin-bottom: 20px;
+            font-size: 0.95em; transition: border-color 0.2s;
+        }
+        input:focus, textarea:focus { outline: none; border-color: #3b82f6; }
+        textarea { min-height: 300px; resize: vertical; line-height: 1.5; }
+        
+        /* Botones */
+        .btn { background: #2563eb; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 1em; width: 100%; transition: background 0.2s, transform 0.1s; font-weight: 600;}
+        .btn:hover { background: #1d4ed8; }
+        .btn:active { transform: translateY(1px); }
+
+        /* Botón OCR (Factor WOW) */
+        .btn-ocr { 
+            background: #7c3aed; /* Violeta */
+            position: absolute; 
+            top: 25px; 
+            right: 25px; 
+            width: auto;
+            font-size: 0.85em;
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 16px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .btn-ocr:hover { background: #6d28d9; }
+
+        /* Resultado Token */
+        #resultToken {
+            min-height: 180px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            font-size: 0.85em;
+            color: #cbd5e1;
+            background-color: #020617; /* Más oscuro para el token */
+            border: 1px solid #334155;
+        }
+
+        .row { display: flex; gap: 15px; align-items: flex-end; margin-bottom: 20px;}
+        .hidden { display: none; opacity: 0; transition: opacity 0.5s ease;}
+        .visible { display: block; opacity: 1; }
+        
+        a { color: #38bdf8; text-decoration: none; margin-right: 20px; font-weight: 500; border-bottom: 1px dotted transparent; transition: border-bottom 0.2s;}
+        a:hover { border-bottom-color: #38bdf8; }
+
+        /* Spinner simple */
+        .spinner { border: 2px solid rgba(255,255,255,0.3); border-top: 2px solid #fff; border-radius: 50%; width: 14px; height: 14px; animation: spin 1s linear infinite; display: inline-block; margin-right: 5px;}
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Status Badge */
+        #statusBadge { font-weight: bold; padding: 4px 8px; border-radius: 4px; background: rgba(255,255,255,0.05); font-size: 0.9em;}
+    </style>
+</head>
+<body>
+
+    <h1>Issuer <span>| Emisión Inteligente (OCR)</span></h1>
+
+    <div class="container">
+        
+        <div class="card">
+            <div class="label">Borrador VC (JSON)</div>
+            
+            <button class="btn btn-ocr" onclick="document.getElementById('ocrInput').click()">
+                <span id="ocrIcon">📸</span> Escanear Imagen
+            </button>
+            <input type="file" id="ocrInput" accept="image/*" style="display:none" onchange="handleOcr(this)">
+
+            <textarea id="vcJson" spellcheck="false"></textarea>
+
+            <div class="row">
+                <div style="flex: 2;">
+                    <div class="label">Subject DID (Atleta)</div>
+                    <input type="text" id="subjectDid" value="did:example:athlete:5678">
+                </div>
+                <div style="flex: 1;">
+                    <div class="label">TTL (seg)</div>
+                    <input type="number" id="ttl" value="3600">
+                </div>
+            </div>
+
+            <button class="btn" id="btnEmitir" onclick="issueCredential()">Firmar y Emitir Credencial</button>
+        </div>
+
+        <div class="card" id="resultCard" style="opacity: 0.5; pointer-events: none;">
+            <div class="label">Resultado de Emisión</div>
+            
+            <div class="row" style="margin-bottom: 20px; align-items: center;">
+                <div style="margin-right: 15px;">
+                    <span class="label" style="margin-bottom: 4px;">Estado</span>
+                    <span id="statusBadge" style="color: #64748b;">Pendiente</span>
+                </div>
+                <div style="flex-grow: 1;">
+                    <span class="label" style="margin-bottom: 4px;">JTI (ID Único)</span>
+                    <input type="text" id="resJti" readonly style="margin-bottom: 0; color: #e2e8f0; background: transparent; border: none; padding: 0; font-size: 1em;">
+                </div>
+            </div>
+
+            <div class="label">Token (JWT Firmado)</div>
+            <textarea id="resultToken" readonly placeholder="El token firmado aparecerá aquí..."></textarea>
+
+            <div id="actions" class="hidden" style="margin-top: 20px; border-top: 1px solid #334155; padding-top: 20px;">
+                <a href="/holder" target="_blank" title="Abrir cartera del atleta">📱 Ir al Holder</a>
+                <a href="#" id="linkQr" target="_blank" title="Ver código QR">🔳 Ver QR</a>
+                <a href="#" id="linkJson" target="_blank" title="Ver JSON crudo">📄 Ver JSON</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. Inicialización ---
+        const defaultVC = {
+            "type": ["VerifiableCredential", "RaceResultCredential"], // Formato más estándar
+            "issuer": "did:web:jalbfil.github.io", 
+            "credentialSubject": {
+                "event": "HYROX MÁLAGA 24",
+                "bib": "",
+                "name": "ATLETA PENDIENTE",
+                "result": { 
+                    "time": "",
+                    "category": "Pro Men"
+                }
+            }
+        };
+        document.getElementById('vcJson').value = JSON.stringify(defaultVC, null, 4);
+
+        // --- 2. Lógica OCR (WOW FACTOR ACTUALIZADO) ---
+        async function handleOcr(input) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                const btn = document.querySelector('.btn-ocr');
+                const originalText = btn.innerHTML;
+                
+                // UI Loading
+                btn.innerHTML = '<div class="spinner"></div> Analizando...';
+                btn.disabled = true;
+                btn.style.cursor = 'wait';
+
+                const formData = new FormData();
+                formData.append("file", file);
+
+                try {
+                    const res = await fetch('/issuer/ocr', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if(!res.ok) throw new Error("Error en el servidor OCR");
+                    const data = await res.json();
+
+                    // Mezclar datos con el JSON actual
+                    let currentJson;
+                    try {
+                        currentJson = JSON.parse(document.getElementById('vcJson').value);
+                    } catch (e) {
+                        currentJson = defaultVC; // Fallback si el usuario rompió el JSON
+                    }
+                    
+                    let subj = currentJson.credentialSubject;
+
+                    // --- INYECCIÓN INTELIGENTE DE DATOS ---
+                    let changes = [];
+                    
+                    // 1. Evento (Hyrox + Ciudad)
+                    if(data.event) {
+                        subj.event = data.event; 
+                        changes.push(`Evento: ${data.event}`);
+                    }
+                    
+                    // 2. Dorsal
+                    if(data.bib) {
+                        subj.bib = data.bib;
+                        changes.push(`Dorsal: ${data.bib}`);
+                    }
+
+                    // 3. Nombre del Atleta
+                    if(data.name) {
+                        subj.name = data.name.toUpperCase();
+                        changes.push(`Nombre: ${data.name}`);
+                    }
+
+                    // 4. Tiempo
+                    if(data.time) {
+                        subj.result.time = data.time;
+                        changes.push(`Tiempo: ${data.time}`);
+                    }
+                    
+                    // Actualizamos el textarea visualmente
+                    document.getElementById('vcJson').value = JSON.stringify(currentJson, null, 4);
+                    
+                    // Notificación visual rápida
+                    if (changes.length > 0) {
+                        // Podríamos usar un toast, pero un alert limpio está bien para la demo
+                        // alert("✅ OCR Completado. Datos detectados:\n\n" + changes.join("\n"));
+                        // O mejor, cambiar el texto del botón temporalmente
+                        btn.innerHTML = '✅ ¡Datos leídos!';
+                        setTimeout(() => { btn.innerHTML = originalText; }, 2000);
+                    } else {
+                        alert("⚠️ El OCR funcionó, pero no se detectaron datos claros de carrera en la imagen.");
+                    }
+
+                } catch(e) {
+                    alert("❌ Error: No se pudo procesar la imagen. " + e.message);
+                    btn.innerHTML = originalText;
+                } finally {
+                    // Reset UI si no lo hicimos arriba
+                    if (btn.innerText !== '✅ ¡Datos leídos!') {
+                        btn.innerHTML = originalText;
+                    }
+                    btn.disabled = false;
+                    btn.style.cursor = 'pointer';
+                    input.value = ''; 
+                }
+            }
+        }
+
+        // --- 3. Lógica Emisión ---
+        async function issueCredential() {
+            const vcContent = document.getElementById('vcJson').value;
+            const subDid = document.getElementById('subjectDid').value;
+            const ttl = document.getElementById('ttl').value;
+            const btnEmitir = document.getElementById('btnEmitir');
+            const resultCard = document.getElementById('resultCard');
+            
+            // UI Feedback
+            btnEmitir.innerHTML = '<div class="spinner"></div> Firmando criptográficamente...';
+            btnEmitir.disabled = true;
+            
+            document.getElementById('statusBadge').innerText = "Procesando...";
+            document.getElementById('statusBadge').style.color = "#fcd34d"; // Amarillo
+
+            try {
+                let payload;
+                try {
+                    payload = JSON.parse(vcContent);
+                } catch(e) {
+                    throw new Error("El JSON del borrador tiene errores de sintaxis. Revisa las comas y comillas.");
+                }
+
+                const res = await fetch(`/issuer/issue?ttl=${ttl}&subject_did=${subDid}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!res.ok) {
+                    // Aquí capturamos el error real del backend
+                    const err = await res.json();
+                    
+                    // Si es un error de validación de Pydantic (422), viene como un array/objeto
+                    let errorMsg = "Error desconocido";
+                    if (err.detail) {
+                        if (typeof err.detail === 'string') {
+                            errorMsg = err.detail;
+                        } else {
+                            // Es un objeto complejo, lo convertimos a texto para poder leerlo
+                            errorMsg = JSON.stringify(err.detail, null, 2);
+                        }
+                    }
+                    throw new Error(errorMsg);
+                }
+
+                const data = await res.json();
+
+                // Éxito
+                document.getElementById('statusBadge').innerText = "EMITIDO CORRECTAMENTE";
+                document.getElementById('statusBadge').style.color = "#4ade80"; // Verde
+                document.getElementById('statusBadge').style.background = "rgba(74, 222, 128, 0.1)";
+                
+                // Activar visualmente la tarjeta de resultado
+                resultCard.style.opacity = "1";
+                resultCard.style.pointerEvents = "auto";
+
+                document.getElementById('resJti').value = data.jti;
+                document.getElementById('resultToken').value = data.token; 
+
+                const linkQr = `/holder/${data.jti}/qr.png`;
+                const linkJson = `/holder/${data.jti}.json`;
+                
+                document.getElementById('linkQr').href = linkQr;
+                document.getElementById('linkJson').href = linkJson;
+                
+                // Mostrar acciones con una pequeña animación
+                const actionsDiv = document.getElementById('actions');
+                actionsDiv.classList.remove('hidden');
+                actionsDiv.classList.add('visible');
+
+            } catch (e) {
+                console.error(e); // Para ver el error en la consola del navegador (F12)
+                alert("Error de emisión:\n" + e.message);
+                document.getElementById('statusBadge').innerText = "ERROR";
+                document.getElementById('statusBadge').style.color = "#f87171"; // Rojo
+            } finally {
+                btnEmitir.innerHTML = 'Firmar y Emitir Credencial';
+                btnEmitir.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

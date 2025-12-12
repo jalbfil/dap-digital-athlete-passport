@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>DAP - Digital Athlete Passport</title>
+    <style>
+        body { background-color: #0f172a; color: #e2e8f0; font-family: sans-serif; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+        .container { max-width: 900px; width: 100%; padding: 20px; text-align: center; }
+        
+        h1 { font-size: 2.5em; margin-bottom: 10px; color: #38bdf8; }
+        p.subtitle { color: #94a3b8; font-size: 1.2em; margin-bottom: 40px; }
+
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+        
+        .card { 
+            background-color: #1e293b; padding: 30px; border-radius: 12px; border: 1px solid #334155; 
+            transition: transform 0.2s, border-color 0.2s; text-decoration: none; color: inherit; display: block;
+        }
+        .card:hover { transform: translateY(-5px); border-color: #38bdf8; background-color: #263346; }
+
+        .role-icon { font-size: 2em; margin-bottom: 15px; display: block; }
+        .role-title { font-size: 1.5em; font-weight: bold; margin-bottom: 10px; color: #e2e8f0; }
+        .role-desc { font-size: 0.9em; color: #94a3b8; line-height: 1.4; }
+
+        .admin-link { margin-top: 40px; display: inline-block; color: #475569; text-decoration: none; font-size: 0.9em; }
+        .admin-link:hover { color: #94a3b8; text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>DAP</h1>
+        <p class="subtitle">Digital Athlete Passport — TFG Demo</p>
+
+        <div class="grid">
+            <a href="/issuer" class="card">
+                <span class="role-icon">🏛️</span>
+                <div class="role-title">Issuer</div>
+                <div class="role-desc">Emite credenciales verificables (VC) firmadas para los atletas.</div>
+            </a>
+
+            <a href="/holder" class="card">
+                <span class="role-icon">📱</span>
+                <div class="role-title">Holder</div>
+                <div class="role-desc">Cartera del atleta. Custodia tokens y presenta códigos QR.</div>
+            </a>
+
+            <a href="/verifier" class="card">
+                <span class="role-icon">🔍</span>
+                <div class="role-title">Verifier</div>
+                <div class="role-desc">Audita la validez, integridad y propiedad de las credenciales.</div>
+            </a>
+        </div>
+
+        <a href="/admin/ui?token=supersecreto123" class="admin-link">🔧 Panel de Administración</a>
+    </div>
+
+</body>
+</html>

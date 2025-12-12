@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin DB — DAP</title>
+    <style>
+        /* ESTILO BASE (Cyberpunk/Dashboard) */
+        body { background-color: #0f172a; color: #e2e8f0; font-family: sans-serif; margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        
+        /* HEADER */
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 1px solid #334155; padding-bottom: 20px; }
+        h1 { margin: 0; color: #38bdf8; font-size: 2em; }
+        .subtitle { color: #94a3b8; margin: 5px 0 0 0; font-size: 1em; }
+
+        /* CARDS */
+        .card { background-color: #1e293b; padding: 25px; border-radius: 8px; border: 1px solid #334155; margin-bottom: 30px; }
+        .card h2 { margin-top: 0; color: #e2e8f0; font-size: 1.2em; border-bottom: 2px solid #334155; padding-bottom: 10px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+        
+        /* TABLAS DE DATOS */
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+        
+        th { text-align: left; padding: 12px 15px; color: #94a3b8; font-weight: 600; border-bottom: 1px solid #475569; text-transform: uppercase; font-size: 0.8em; letter-spacing: 0.05em; }
+        td { padding: 12px 15px; border-bottom: 1px solid #334155; color: #cbd5e1; vertical-align: middle; }
+        
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background-color: #263346; }
+
+        /* Estilos específicos para celdas */
+        code { font-family: 'Consolas', 'Monaco', monospace; background: #0f172a; padding: 3px 6px; border-radius: 4px; border: 1px solid #334155; color: #f472b6; font-size: 0.9em; }
+        
+        .status-badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; font-weight: bold; text-transform: uppercase; }
+        .status-valid { background: #064e3b; color: #4ade80; border: 1px solid #059669; }
+        .status-revoked { background: #450a0a; color: #f87171; border: 1px solid #dc2626; }
+
+        .empty-msg { color: #64748b; font-style: italic; text-align: center; padding: 20px; }
+
+        /* BOTONES */
+        .btn { background: #3b82f6; color: white; text-decoration: none; padding: 8px 16px; border-radius: 4px; font-size: 0.9em; transition: background 0.2s; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; border: none; }
+        .btn:hover { background: #2563eb; }
+        .btn-outline { background: transparent; border: 1px solid #475569; color: #cbd5e1; }
+        .btn-outline:hover { border-color: #94a3b8; color: white; }
+        
+        .btn-danger { background: #b91c1c; color: white; border: none; padding: 5px 10px; font-size: 0.8em; border-radius: 4px; cursor: pointer; }
+        .btn-danger:hover { background: #dc2626; }
+
+        /* JTI / TOKEN Column width control */
+        .col-mono { font-family: monospace; color: #a5b4fc; }
+        .col-token { color: #64748b; font-size: 0.85em; max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    
+    <div class="header">
+        <div>
+            <h1>Admin DB</h1>
+            <p class="subtitle">Panel de Control & Auditoría</p>
+        </div>
+        <div>
+            <a href="/" class="btn btn-outline">← Volver al Inicio</a>
+            <button onclick="window.location.reload();" class="btn">↻ Actualizar</button>
+        </div>
+    </div>
+
+    <section class="card">
+        <h2>📜 Credenciales Emitidas (VC-JWT)</h2>
+        
+        {% if creds and creds|length > 0 %}
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th width="30%">JTI (ID)</th>
+                        <th width="10%">Estado</th>
+                        <th width="20%">Creado (UTC)</th>
+                        <th width="30%">Token Snippet</th>
+                        <th width="10%">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in creds %}
+                    <tr>
+                        <td class="col-mono">{{ c.jti }}</td>
+                        <td>
+                            {% if c.status == 'valid' %}
+                                <span class="status-badge status-valid">VALID</span>
+                            {% else %}
+                                <span class="status-badge status-revoked">{{ c.status|upper }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ c.created_at }}</td>
+                        <td>
+                            <span class="col-token" title="Token completo disponible en DB">{{ c.token_start }}</span>
+                        </td>
+                        <td>
+                            {% if c.status == 'valid' %}
+                                <button class="btn-danger" onclick="revoke('{{ c.jti }}')">REVOCAR</button>
+                            {% else %}
+                                <span style="color:#64748b; font-size: 0.8em;">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            <div class="empty-msg">No hay credenciales registradas en la base de datos.</div>
+        {% endif %}
+    </section>
+
+    <section class="card">
+        <h2>🔐 Nonces (Anti-Replay)</h2>
+        
+        {% if nonces and nonces|length > 0 %}
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th width="40%">Valor (Challenge)</th>
+                        <th width="30%">Expira (UTC)</th>
+                        <th width="30%">Consumido (UTC)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for n in nonces %}
+                    <tr>
+                        <td><code>{{ n.value }}</code></td>
+                        <td>{{ n.expires_at }}</td>
+                        <td>
+                            {% if n.consumed_at %}
+                                <span style="color: #f87171;">{{ n.consumed_at }}</span>
+                            {% else %}
+                                <span style="color: #4ade80;">-- Disponible --</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            <div class="empty-msg">No hay nonces activos o históricos.</div>
+        {% endif %}
+    </section>
+
+</div>
+
+<script>
+    // Recuperamos el token de admin que vino desde el backend
+    const ADMIN_TOKEN = "{{ token }}";
+
+    async function revoke(jti) {
+        if(!confirm("¿Seguro que quieres REVOCAR esta credencial? Esta acción es irreversible.")) {
+            return;
+        }
+
+        try {
+            // Llamamos al endpoint con el token en la query string
+            const res = await fetch(`/admin/revoke?token=${ADMIN_TOKEN}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ jti: jti })
+            });
+
+            if(res.ok) {
+                // Recargamos para ver el cambio de estado
+                window.location.reload();
+            } else {
+                const err = await res.json();
+                alert("Error: " + (err.detail || "Fallo al revocar"));
+            }
+        } catch(e) {
+            alert("Error de conexión: " + e.message);
+        }
+    }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Digital Athlete Passport{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/base.css">
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <div class="brand">Digital Athlete Passport <small>v1</small></div>
+      <nav class="nav">
+        <a href="/" id="lnk-home">Inicio</a>
+        <a href="/issuer" id="lnk-issuer">Issuer</a>
+        <a href="/holder" id="lnk-holder">Holder</a>
+        <a href="/verifier" id="lnk-verifier">Verifier</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="main">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer">
+    DAP v1 — Roles separados (Issuer / Holder / Verifier). Sin datos personales persistentes.
+  </footer>
+
+  <script>
+    const path = location.pathname;
+    for (const id of ["home","issuer","holder","verifier"]) {
+      const a = document.getElementById("lnk-"+id);
+      if (!a) continue;
+      if ((id==="home" && path === "/") || path.startsWith("/"+id)) a.classList.add("active");
+    }
+  </script>
+  <script src="/static/role.js"></script>
+</body>
+</html>

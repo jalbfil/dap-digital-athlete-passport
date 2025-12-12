@@ -1,0 +1,18 @@
+services:
+  dap-app:
+    build: .
+    container_name: dap_container
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persistencia de la Base de Datos (se guarda fuera del contenedor)
+      - ./dap_data:/app/dap_data
+      # Mapeamos las claves locales para no tener que regenerarlas
+      - ./app/keys:/app/app/keys
+    environment:
+      - ADMIN_TOKEN=supersecreto123
+      - DATABASE_URL=sqlite+aiosqlite:///dap_data/dap.db
+      # Forzamos a Python a saber que en Linux Tesseract está en el PATH estándar
+      - LC_ALL=C.UTF-8
+      - LANG=C.UTF-8
+    restart: unless-stopped
