@@ -1,13 +1,44 @@
+# ==========================================
+# DAP (Digital Athlete Passport) Dependencies
+# ==========================================
+
+# --- 1. CORE & API FRAMEWORK ---
+# Framework web de alto rendimiento (Asíncrono)
 fastapi>=0.115,<1
+# Servidor ASGI de producción (incluye uvloop para velocidad)
 uvicorn[standard]>=0.30,<1
+# Validación de datos estricta y serialización
 pydantic>=2.5,<3
+# Gestión robusta de configuración (.env)
+pydantic-settings>=2.0
+
+# --- 2. SEGURIDAD & CRIPTOGRAFÍA (SSI) ---
+# Manejo de estándares JWT (JSON Web Tokens) para las VCs
 PyJWT>=2.8,<3
+# Primitivas criptográficas (RSA 2048, firmas, PEM)
 cryptography>=42,<43
+
+# --- 3. PERSISTENCIA DE DATOS (ASYNC) ---
 SQLAlchemy[asyncio]>=2.0,<3
+# Driver no bloqueante para SQLite
 aiosqlite>=0.20,<1
+
+# --- 4. UTILIDADES & MÓDULOS DE NEGOCIO ---
+# Generación de códigos QR (dependencia 'pil' para imágenes)
 qrcode[pil]>=8,<9
-# DEPENDENCIAS OCR
+# Cliente HTTP asíncrono (Necesario para did:web resolver y Testing)
+httpx>=0.27.0
+
+# --- 5. MÓDULO INTELIGENCIA ARTIFICIAL (OCR) ---
+# Wrapper Python para el motor Tesseract-OCR
 pytesseract>=0.3.10
+# Procesamiento de subida de archivos (multipart/form-data)
 python-multipart>=0.0.9
-# DEPENDENCIAS FRONTEND
+
+# --- 6. FRONTEND (UI) ---
+# Motor de plantillas para renderizar el Dashboard HTML
 jinja2>=3.1.0
+
+# --- 7. CALIDAD Y TESTING (QA) ---
+# Framework de pruebas unitarias y de integración
+pytest>=8.0.0
