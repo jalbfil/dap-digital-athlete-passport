@@ -1,137 +1,135 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>DAP - Holder</title>
-    <style>
-        body { background-color: #0f172a; color: #e2e8f0; font-family: sans-serif; margin: 0; padding: 20px; }
-        .container { max-width: 1000px; margin: 0 auto; display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; }
-        h1 { grid-column: 1 / -1; border-bottom: 1px solid #334155; padding-bottom: 10px; margin-bottom: 20px; }
-        
-        .card { background-color: #1e293b; padding: 20px; border-radius: 8px; border: 1px solid #334155; }
-        .label { font-size: 0.85em; color: #94a3b8; margin-bottom: 5px; font-weight: bold; }
-        
-        input { 
-            width: 100%; box-sizing: border-box; background: #0f172a; border: 1px solid #334155; 
-            color: white; padding: 10px; border-radius: 4px; margin-bottom: 10px;
-        }
+{% extends "base.html" %}
 
-        /* Token Box */
-        .token-display {
-            width: 100%;
-            min-height: 150px;
-            background: #0f172a;
-            border: 1px solid #334155;
-            color: #cbd5e1;
-            padding: 10px;
-            font-family: monospace;
-            font-size: 0.8em;
-            word-break: break-all; 
-            white-space: pre-wrap;
-            border-radius: 4px;
-            margin-bottom: 10px;
-            box-sizing: border-box;
-        }
+{% block title %}DAP — Holder (Cartera){% endblock %}
 
-        .qr-box { text-align: center; background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-        .qr-box img { max-width: 100%; height: auto; }
-        .empty-state { color: #64748b; font-style: italic; }
+{% block content %}
+<div class="grid grid-2">
+    
+    <div class="card">
+        <div class="card-pad">
+            <h2>📱 Mi Cartera Digital</h2>
+            <p class="muted" style="margin-bottom: 20px;">
+                Introduce el identificador único (JTI) que te proporcionó el emisor para cargar tu credencial.
+            </p>
 
-        .btn { background: #2563eb; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; transition: background 0.2s; }
-        .btn:hover { background: #1d4ed8; }
-        
-        .btn-action { width: 100%; margin-top: 10px; font-size: 1.1em; display: block; text-align: center; text-decoration: none; box-sizing: border-box; }
-        .btn-copy { background: #334155; font-size: 0.8em; padding: 5px 10px; margin-bottom: 5px; float: right; }
-
-        .row-actions { display: flex; gap: 10px; margin-bottom: 15px; }
-    </style>
-</head>
-<body>
-
-    <h1>Holder <span style="font-size:0.5em; color:#64748b;">| Cartera de Atleta</span></h1>
-
-    <div class="container">
-        
-        <div class="card">
-            <div class="label">Buscar Credencial por JTI</div>
-            <input type="text" id="jtiInput" placeholder="Pega aquí el JTI (vc-...)">
-            
-            <div class="row-actions">
-                <button class="btn" onclick="loadCredential()">Cargar Credencial</button>
+            <div class="form-group">
+                <label for="holder-jti">Identificador de Credencial (JTI)</label>
+                <input type="text" id="holder-jti" placeholder="Ej: vc-hyrox-..." autocomplete="off">
             </div>
 
-            <div id="credData" style="display:none; border-top: 1px solid #334155; padding-top: 20px;">
-                <div class="label">Estado</div>
-                <div id="statusVal" style="margin-bottom: 15px; font-weight: bold; color: #4ade80;">--</div>
-
-                <div style="overflow: hidden; margin-bottom: 5px;">
-                    <span class="label">Token Completo (VC-JWT)</span>
-                    <button class="btn btn-copy" onclick="copyToken()">Copiar</button>
-                </div>
-                
-                <div id="tokenVal" class="token-display"></div>
-            </div>
+            <button id="holder-load" class="btn primary" style="width: 100%; margin-top: 10px;">
+                Cargar Credencial
+            </button>
         </div>
+    </div>
 
-        <div class="card">
-            <div class="label" style="margin-bottom: 10px;">Código QR</div>
-            <div id="qrContainer" class="qr-box">
-                <span class="empty-state">Carga un JTI para ver el QR</span>
-            </div>
+    <div class="card">
+        <div class="card-pad">
+            <h2>Detalles de la Credencial</h2>
             
-            <div style="text-align: center; margin-bottom: 20px;">
-                <a id="jsonLink" href="#" target="_blank" style="color:#38bdf8; display:none;">Abrir JSON crudo</a>
+            <div style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border);">
+                <pre id="holder-summary" style="margin: 0; white-space: pre-wrap; color: var(--accent); font-family: 'Consolas', monospace;">— Datos no cargados —</pre>
             </div>
 
-            <div style="border-top: 1px solid #334155; padding-top: 20px;">
-                <div class="label">Siguiente paso:</div>
-                <a href="/verifier" class="btn btn-action" style="background-color: #059669;">Ir al Verificador &rarr;</a>
+            <label>Token Firmado (Fragmento)</label>
+            <div class="code" id="holder-token-snippet" style="min-height: 60px; font-size: 0.8em; color: var(--muted); margin-bottom: 20px;">
+                —
+            </div>
+
+            <div style="text-align: center; margin: 20px 0;">
+                <img id="holder-qr-img" src="" alt="Código QR" style="display: none; max-width: 200px; margin: 0 auto; border: 4px solid white; border-radius: 8px;">
+                <p class="muted" style="font-size: 0.8em; margin-top: 10px;">Escanea este QR con la app del Verificador</p>
+            </div>
+
+            <div class="row" style="justify-content: space-between; border-top: 1px solid var(--border); padding-top: 15px;">
+                <a href="#" id="holder-open-qr" target="_blank" class="btn disabled" style="flex: 1; text-align: center; margin-right: 10px;">
+                    ⬇️ Descargar QR
+                </a>
+                <a href="#" id="holder-open-json" target="_blank" class="btn disabled" style="flex: 1; text-align: center;">
+                    📄 Ver JSON Completo
+                </a>
             </div>
         </div>
     </div>
 
-    <script>
-        async function loadCredential() {
-            const jti = document.getElementById('jtiInput').value.trim();
-            if(!jti) return alert("Introduce un JTI");
+</div>
+{% endblock %}
 
-            document.getElementById('qrContainer').innerHTML = '<span class="empty-state">Cargando...</span>';
+{% block scripts %}
+<script>
+    // Lógica específica del Holder
+    const btnHolderLoad = document.getElementById("holder-load");
+    
+    if (btnHolderLoad) {
+        btnHolderLoad.addEventListener("click", async () => {
+            const jtiInput = document.getElementById("holder-jti");
+            const jti = jtiInput.value.trim();
             
-            try {
-                const res = await fetch(`/holder/${jti}.json`);
-                if(!res.ok) throw new Error("Credencial no encontrada");
-                const data = await res.json();
+            const tok = document.getElementById("holder-token-snippet");
+            const sum = document.getElementById("holder-summary");
+            const qrImg = document.getElementById("holder-qr-img");
+            const btnQr = document.getElementById("holder-open-qr");
+            const btnJson = document.getElementById("holder-open-json");
 
-                document.getElementById('credData').style.display = 'block';
-                document.getElementById('statusVal').innerText = data.status.toUpperCase();
-                
-                // Texto completo
-                document.getElementById('tokenVal').innerText = data.token;
-
-                // QR
-                const img = document.createElement('img');
-                img.src = `/holder/${jti}/qr.png`;
-                const qrBox = document.getElementById('qrContainer');
-                qrBox.innerHTML = '';
-                qrBox.appendChild(img);
-
-                // Link JSON
-                const lnk = document.getElementById('jsonLink');
-                lnk.href = `/holder/${jti}.json`;
-                lnk.style.display = 'inline-block';
-
-            } catch(e) {
-                alert(e.message);
-                document.getElementById('qrContainer').innerHTML = '<span class="empty-state">Error</span>';
+            // Reset UI
+            tok.textContent = "Cargando...";
+            sum.textContent = "...";
+            qrImg.style.display = "none";
+            
+            if (!jti) {
+                alert("Por favor, introduce un JTI válido.");
+                tok.textContent = "—";
+                sum.textContent = "—";
+                return;
             }
-        }
 
-        function copyToken() {
-            const token = document.getElementById('tokenVal').innerText;
-            navigator.clipboard.writeText(token).then(() => {
-                alert("Token copiado al portapapeles");
-            });
-        }
-    </script>
-</body>
-</html>
+            try {
+                // 1. Obtener JSON de la credencial
+                const resp = await fetch(`/holder/${encodeURIComponent(jti)}.json`);
+                
+                if (!resp.ok) {
+                    const err = await resp.json();
+                    throw new Error(err.detail || "Error al buscar credencial");
+                }
+                
+                const data = await resp.json();
+
+                // 2. Mostrar datos
+                // Mostramos un snippet del token
+                tok.textContent = (data.token || "").slice(0, 100) + "...";
+                
+                // Parseamos el token para mostrar el resumen (esto se hace en cliente solo para visualizar)
+                // En un caso real, usaríamos una librería JWT, aquí hacemos un parseo básico del payload
+                try {
+                    const payloadPart = data.token.split('.')[1];
+                    const decodedPayload = JSON.parse(atob(payloadPart));
+                    const subj = decodedPayload.vc.credentialSubject || {};
+                    
+                    sum.textContent = `EVENTO:  ${subj.event || "N/A"}\n` +
+                                      `ATLETA:  ${subj.name || "N/A"}\n` +
+                                      `DORSAL:  ${subj.bib || "N/A"}\n` +
+                                      `TIEMPO:  ${subj.result?.time || "N/A"}`;
+                } catch(e) {
+                    sum.textContent = "No se pudieron decodificar los datos del token para vista previa.";
+                }
+
+                // 3. Cargar QR
+                const qrUrl = `/holder/${encodeURIComponent(jti)}/qr.png`;
+                qrImg.src = qrUrl;
+                qrImg.style.display = "block";
+                
+                // 4. Activar botones
+                btnQr.href = qrUrl;
+                btnQr.classList.remove("disabled");
+                btnJson.href = `/holder/${encodeURIComponent(jti)}.json`;
+                btnJson.classList.remove("disabled");
+
+            } catch (e) {
+                alert("Error: " + e.message);
+                tok.textContent = "Error";
+                sum.textContent = "No encontrada";
+            }
+        });
+    }
+</script>
+{% endblock %}
