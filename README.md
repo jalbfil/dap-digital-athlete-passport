@@ -35,7 +35,7 @@ Requisito: Tener Docker Desktop instalado (https://www.docker.com/)
 
 1.  **Clona el repositorio:**
     ```bash
-    git clone [https://github.com/TU_USUARIO/dap-digital-athlete-passport.git](https://github.com/jalbfil/dap-digital-athlete-passport.git)
+    git clone [https://github.com/jalbfil/dap-digital-athlete-passport.git](https://github.com/jalbfil/dap-digital-athlete-passport.git)
     cd dap-digital-athlete-passport
     ```
 2.  **Arranca el sistema:**
