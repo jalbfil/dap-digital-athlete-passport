@@ -113,15 +113,51 @@ Ve a '/admin/ui?token=supersecreto123'
 ## 🏗️ Arquitectura del Proyecto
 
 ```text
-C:.
-├── app/
-│   ├── api/          # Controladores (Endpoints)
-│   ├── core/         # Configuración y Criptografía
-│   ├── db/           # Modelos y Sesión Async
-│   ├── services/     # Lógica de Negocio (DID Resolver, OCR)
-│   ├── templates/    # Frontend (Jinja2)
-│   └── main.py       # Punto de entrada
-├── tests/            # Tests automáticos (pytest)
-├── dap_data/         # Persistencia Docker
-├── Dockerfile        # Definición de la imagen
-└── docker-compose.yml
+.
+├── app/                        # Núcleo de la aplicación (Backend + Frontend)
+│   ├── api/                    # Controladores de API (Endpoints por rol)
+│   │   ├── __init__.py
+│   │   ├── admin.py            # Endpoints de gestión y revocación
+│   │   ├── holder.py           # Endpoints para la cartera digital
+│   │   ├── issuer.py           # Endpoints de emisión e ingesta OCR
+│   │   └── verifier.py         # Endpoints de verificación y challenges
+│   │
+│   ├── db/                     # Capa de Persistencia (SQLite Async)
+│   │   ├── __init__.py
+│   │   ├── models.py           # Modelos de datos (SQLAlchemy)
+│   │   └── session.py          # Configuración de conexión asíncrona
+│   │
+│   ├── services/               # Lógica de Negocio y Servicios Internos
+│   │   ├── __init__.py
+│   │   ├── ocr.py              # Motor de visión artificial (Tesseract Wrapper)
+│   │   └── vc.py               # Motor criptográfico (Firmas RSA, JWT, DIDs)
+│   │
+│   ├── static/                 # Recursos estáticos
+│   │   ├── css/
+│   │   │   └── base.css        # Estilos globales (Variables CSS)
+│   │   └── role.js             # Lógica de interfaz de usuario
+│   │
+│   ├── templates/              # Vistas HTML (Motor Jinja2)
+│   │   ├── admin.html          # Panel de administración
+│   │   ├── base.html           # Layout principal (Herencia de plantillas)
+│   │   ├── holder.html         # Vista del Atleta
+│   │   ├── index.html          # Landing page
+│   │   ├── issuer.html         # Vista del Organizador
+│   │   └── verifier.html       # Vista del Auditor
+│   │
+│   ├── __init__.py
+│   └── main.py                 # Punto de entrada de la aplicación FastAPI
+│
+├── tests/                      # Suite de Pruebas (QA)
+│   ├── __init__.py
+│   ├── sample_race.png.jpg     # Imagen de muestra para validación OCR
+│   ├── test_crypto.py          # Tests unitarios de criptografía
+│   ├── test_ebsi.py            # Simulación de interoperabilidad EBSI
+│   └── test_ocr.py             # Test de integración del pipeline OCR
+│
+├── .env.example                # Plantilla de variables de entorno
+├── docker-compose.yml          # Orquestación de contenedores y volúmenes
+├── Dockerfile                  # Definición de la imagen (Python + Tesseract)
+├── gen_keys.py                 # Script utilitario para generar claves RSA
+├── README.md                   # Documentación del proyecto
+└── requirements.txt            # Dependencias de Python
