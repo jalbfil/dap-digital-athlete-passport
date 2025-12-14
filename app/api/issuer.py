@@ -1,117 +1,102 @@
 from __future__ import annotations
-from typing import Annotated, Any
+from pathlib import Path
+from typing import Any, Annotated
 
-from fastapi import APIRouter, Depends, Body, Query
+# AÑADIDO: UploadFile y File para recibir imágenes
+from fastapi import APIRouter, HTTPException, Body, Query, Depends, Request, UploadFile, File
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.services.vc import issue_vc_jwt
 from app.db.session import get_db
 from app.db.models import Credential
-from app.services.vc import verify_jwt
 
-# --- CONFIGURACIÓN ---
-router = APIRouter(prefix="/verifier", tags=["verifier"])
+# AÑADIDO: Importamos el servicio OCR
+from app.services.ocr import extract_race_data
 
-# --- DEPENDENCIES ---
+router = APIRouter(prefix="/issuer", tags=["issuer"])
+
+TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+
+# --- DEPENDENCIAS ---
 DBDep = Annotated[AsyncSession, Depends(get_db)]
 
-# --- DTOs (Modelos de Entrada) ---
-class VerifyRequest(BaseModel):
-    token: str
+# --- MODELOS ---
+class VCModel(BaseModel):
+    # Aceptamos lista de strings (estándar) o string único (por compatibilidad)
+    type: list[str] | str 
+    issuer: str | None = None
+    credentialSubject: dict[str, Any]
+    # Permitimos campos extra por si metemos @context o credentialSchema
+    model_config = {"extra": "allow"}
 
 # --- ENDPOINTS ---
 
-@router.post("/verify", summary="Verificación Criptográfica + Estado")
-async def verify_token(
+@router.get("", response_class=HTMLResponse)
+async def issuer_page(request: Request):
+    return templates.TemplateResponse("issuer.html", {"request": request})
+
+# --- NUEVO ENDPOINT OCR ---
+@router.post("/ocr")
+async def process_ocr(file: UploadFile = File(...)):
+    """Recibe una imagen, extrae texto e intenta adivinar dorsal y tiempo."""
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="El archivo debe ser una imagen")
+    
+    content = await file.read()
+    data = extract_race_data(content)
+    
+    return data
+# ---------------------------
+
+@router.post("/issue")
+async def issue(
     db: DBDep,
-    body: VerifyRequest = Body(...)
+    vc: VCModel = Body(...),
+    ttl: int = Query(3600, ge=60, le=31536000), 
+    subject_did: str = Query(..., alias="subject_did"),
 ):
-    """
-    Realiza una auditoría completa de la credencial recibida (VC-JWT).
+    try:
+        vc_dict = vc.model_dump() if hasattr(vc, "model_dump") else vc.dict()
+        
+        # --- MEJORA EBSI: Inyección de Esquema ---
+        # Aseguramos que la credencial cumple con estándares europeos simulados
+        if "credentialSchema" not in vc_dict:
+            vc_dict["credentialSchema"] = {
+                "id": "https://api.preprod.ebsi.eu/trusted-schemas-registry/v1/schemas/0x123...",
+                "type": "JsonSchemaValidator2018"
+            }
+        # -----------------------------------------
+
+        res = issue_vc_jwt(vc_dict, subject_did=subject_did, ttl=ttl)
     
-    Flujo de Validación (Academic Standard):
-    1. **Integridad y Autenticidad**: Verifica la firma digital (RS256) resolviendo
-       la clave pública del emisor a través de su DID (Web o EBSI).
-    2. **Validez Temporal**: Comprueba que el token no haya expirado ('exp').
-    3. **Estado de Ciclo de Vida**: Consulta la BD para asegurar que la credencial
-       no ha sido REVOCADA por el organizador.
-    """
-    token = body.token
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=500, detail=f"Configuración de claves incompleta: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    cred = Credential(
+        jti=res["jti"], 
+        token=res["token"], 
+        status="valid"
+    )
+    db.add(cred)
+    await db.commit()
+
+    subject_data = res["claims"].get("vc", {}).get("credentialSubject", {})
     
-    # 1. Verificación Criptográfica (Capa DID/SSI)
-    # Llama al servicio que contiene la lógica del 'DID Resolver' inteligente.
-    # Si el issuer es 'did:ebsi:...', simulará la resolución en Blockchain.
-    verification = verify_jwt(token)
-    
-    if not verification["ok"]:
-        return {
-            "valid": False, 
-            "reason": f"Firma o estructura inválida: {verification.get('error')}"
-        }
-
-    payload = verification["payload"]
-    jti = payload.get("jti")
-
-    if not jti:
-        return {"valid": False, "reason": "El token no contiene identificador único (JTI)."}
-
-    # 2. Verificación de Estado (Capa de Persistencia)
-    # Buscamos el ID en la base de datos para comprobar si sigue siendo válido.
-    query = select(Credential).where(Credential.jti == jti)
-    result = await db.execute(query)
-    credential = result.scalar_one_or_none()
-
-    # Caso A: La credencial no existe en nuestra BD (puede venir de otro sistema)
-    # En un sistema federado real, aquí consultaríamos una 'Revocation List' externa.
-    if not credential:
-        return {"valid": False, "reason": "Credencial desconocida (JTI no encontrado)."}
-
-    # Caso B: La credencial fue revocada manualmente (Botón rojo del Admin)
-    if credential.status == "revoked":
-        return {"valid": False, "reason": "La credencial ha sido REVOCADA por el emisor."}
-
-    # ¡ÉXITO!
     return {
-        "valid": True,
-        "claims": payload  # Devolvemos los datos certificados al verificador
-    }
-
-@router.get("/scan", summary="Verificación por Referencia (QR)")
-async def verify_by_jti(
-    db: DBDep,
-    jti: str = Query(..., description="ID único de la credencial (del QR)")
-):
-    """
-    Endpoint utilizado al escanear el código QR.
-    En lugar de recibir el token pesado, recibe el ID (JTI), recupera el token
-    de la base de datos y ejecuta la misma lógica de validación.
-    """
-    # 1. Recuperación
-    query = select(Credential).where(Credential.jti == jti)
-    result = await db.execute(query)
-    credential = result.scalar_one_or_none()
-
-    if not credential:
-        return {"valid": False, "reason": "Credencial no encontrada."}
-
-    if not credential.token:
-        return {"valid": False, "reason": "Registro corrupto: Token no disponible."}
-
-    # 2. Reutilización de Lógica
-    # Incluso si viene de BD, volvemos a verificar la firma y la expiración
-    # para garantizar que el token almacenado sigue siendo criptográficamente válido
-    # en el momento presente (ej. si la clave rotó o si acaba de caducar hace 1 seg).
-    verification = verify_jwt(credential.token)
-
-    if not verification["ok"]:
-        return {"valid": False, "reason": f"Token expirado o inválido: {verification.get('error')}"}
-
-    # 3. Comprobación de Revocación
-    if credential.status == "revoked":
-        return {"valid": False, "reason": "La credencial está REVOCADA."}
-
-    return {
-        "valid": True, 
-        "claims": verification["payload"]
+        "status": "ok",
+        "jti": res["jti"],
+        "token": res["token"],
+        "claims": res["claims"],
+        "summary": {
+            "event": subject_data.get("event"),
+            "bib":   subject_data.get("bib"),
+            "name":  subject_data.get("name"),
+            "time":  subject_data.get("result", {}).get("time"),
+        },
     }
