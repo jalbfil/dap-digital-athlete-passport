@@ -21,10 +21,10 @@ router = APIRouter(prefix="/issuer", tags=["issuer"])
 TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
-# --- DEPENDENCIAS ---
+# --- DEPENDENCIES ---
 DBDep = Annotated[AsyncSession, Depends(get_db)]
 
-# --- MODELOS ---
+# --- MODELS ---
 class VCModel(BaseModel):
     # Aceptamos lista de strings (estándar) o string único (por compatibilidad)
     type: list[str] | str 
