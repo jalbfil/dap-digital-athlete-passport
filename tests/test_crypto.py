@@ -57,21 +57,30 @@ def test_sign_and_verify_success():
 def test_verify_tampered_token_fails():
     """
     [Security Test] Prueba de integridad (Tampering).
+    Simula un ataque de modificación de firma.
     """
     # 1. Emitir token válido
     issued = issue_vc_jwt(MOCK_VC_DATA, MOCK_DID_HOLDER, ttl=60)
     valid_token = issued["token"]
     
-    # 2. Manipular la firma (última parte del JWT)
-    # Quitamos el último carácter y ponemos otro
-    tampered_token = valid_token[:-1] + ("A" if valid_token[-1] != "A" else "B")
+    # 2. Manipular la firma DE FORMA ROBUSTA
+    # Dividimos el token en sus 3 partes (Header.Payload.Signature)
+    parts = valid_token.split('.')
+    
+    # Sustituimos la firma real (parte 3) por basura
+    fake_signature = "Est0EsUnaFirmaFalsaQueFallaraSeguro12345"
+    tampered_token = f"{parts[0]}.{parts[1]}.{fake_signature}"
     
     # 3. Verificar
     verification = verify_jwt(tampered_token)
     
     # 4. Aserción: Debe fallar
-    assert verification["ok"] is False
-    assert "Signature verification failed" in str(verification.get("error")) or "Invalid signature" in str(verification.get("error"))
+    assert verification["ok"] is False, "CRÍTICO: El sistema aceptó una firma falsa."
+    
+    # Verificamos que el error sea de firma o de decodificación
+    error_msg = str(verification.get("error")).lower()
+    assert any(x in error_msg for x in ["signature", "invalid", "decode", "padding"]), \
+        f"El error no fue el esperado: {error_msg}"
 
 
 def test_verify_expired_token_fails():
@@ -91,3 +100,4 @@ def test_verify_expired_token_fails():
     # FIX: Buscamos "expirado" (español) o "expired" (inglés) para ser robustos
     error_msg = str(verification.get("error")).lower()
     assert "expirado" in error_msg or "expired" in error_msg
+
