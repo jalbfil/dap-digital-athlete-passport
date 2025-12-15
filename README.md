@@ -7,7 +7,7 @@
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker)
 ![Coverage](https://img.shields.io/badge/Tests-Passing-success)
 ![License](https://img.shields.io/badge/License-MIT-green)
-
+[![CI/CD - Tests](https://github.com/jalbfil/dap-digital-athlete-passport/actions/workflows/tests.yml/badge.svg)](https://github.com/jalbfil/dap-digital-athlete-passport/actions/workflows/tests.yml)
 ---
 
 ## 📖 Descripción
