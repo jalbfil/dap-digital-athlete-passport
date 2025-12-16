@@ -10,27 +10,27 @@
 [![CI/CD - Tests](https://github.com/jalbfil/dap-digital-athlete-passport/actions/workflows/tests.yml/badge.svg)](https://github.com/jalbfil/dap-digital-athlete-passport/actions/workflows/tests.yml)
 ---
 
-## 📖 Descripción
+## Descripción
 
 **DAP** soluciona el problema del fraude en las certificaciones deportivas (Hyrox, CrossFit, etc) eliminando la dependencia de PDFs falsificables o plataformas centralizadas propietarias.
 
 El sistema implementa una arquitectura **Issuer-Holder-Verifier** alineada con los estándares de la **W3C** y diseñada para ser compatible con el marco europeo **EBSI/ESSIF**.
 
 ### Características Principales
-* **🔐 Seguridad Criptográfica:** Firmas digitales **RS256** y protección **Anti-Replay** (Challenge/Response).
-* **🇪🇺 EBSI-Ready:** Arquitectura agnóstica al método DID. Soporta 'did:web' y está preparada para la resolución on-chain ('did:ebsi').
-* **⚡ Stack Moderno:** Backend 100% asíncrono con **FastAPI** y **SQLAlchemy**.
-* **🐳 Despliegue en un Click:** Contenerización completa con **Docker**.
-* **🧪 Código:** Tests unitarios y de integración ('pytest').
-* **📸 Ingesta Inteligente:** (Experimental) Módulo OCR con Tesseract para digitalizar clasificaciones.
+* **Seguridad Criptográfica:** Firmas digitales **RS256** y protección **Anti-Replay** (Challenge/Response).
+* **EBSI-Ready:** Arquitectura agnóstica al método DID. Soporta 'did:web' y está preparada para la resolución on-chain ('did:ebsi').
+* **Stack Moderno:** Backend 100% asíncrono con **FastAPI** y **SQLAlchemy**.
+* **Despliegue en un Click:** Contenerización completa con **Docker**.
+* **Código:** Tests unitarios y de integración ('pytest').
+* **Ingesta Inteligente:** (Experimental) Módulo OCR con Tesseract para digitalizar clasificaciones.
 
 ---
 
-## 🚀 Guía de Inicio Rápido
+## Guía de Inicio Rápido
 
 Puedes ejecutar el proyecto de dos formas. **Recomendamos la Opción A (Docker)** para evitar configurar entornos.
 
-### Opción A: Despliegue con Docker (Recomendado) 🐳
+### Opción A: Despliegue con Docker (Recomendado) 
 Requisito: Tener Docker Desktop instalado (https://www.docker.com/)
 
 1.  **Clona el repositorio:**
@@ -82,35 +82,35 @@ Si prefieres ejecutarlo nativamente en tu máquina.
 
 ---
 
-## 🕹️ Cómo usar la Aplicación (Flujo Típico)
+## Cómo usar la Aplicación (Flujo Típico)
 
 El sistema expone una interfaz web visual para los tres roles.
 
-### 1. 🏛️ ISSUER (El Organizador)
+### 1. ISSUER (El Organizador)
 Ve a `/issuer`.
 * Rellena los datos del atleta (o sube una foto de la tabla de tiempos para usar el OCR).
 * Pulsa **"Firmar y Emitir"**.
 * Obtendrás un **Token JWT** firmado y un **JTI** (ID único).
 
-### 2. 📱 HOLDER (El Atleta)
+### 2. HOLDER (El Atleta)
 Ve a '/holder'.
 * Aquí el atleta custodia sus credenciales.
 * Puede ver el **Código QR** de su credencial para presentarla ante un juez.
 
-### 3. 🔍 VERIFIER (El Juez)
+### 3. VERIFIER (El Juez)
 Ve a '/verifier'.
 * **Paso 1 (Challenge):** Pide un "Reto" (Nonce) al servidor.
 * **Paso 2 (Verify):** Introduce el Token del atleta junto con el Nonce.
 * El sistema validará: Firma RSA + Caducidad + Estado de Revocación + Integridad del Nonce.
 
-### 4. 🔧 ADMIN (Gestión)
+### 4. ADMIN (Gestión)
 Ve a '/admin/ui?token=supersecreto123'
 * Panel de control para ver todas las credenciales emitidas.
 * **Botón Rojo:** Permite **REVOCAR** una credencial en tiempo real.
 
 ---
 
-## 🏗️ Arquitectura del Proyecto
+## Arquitectura del Proyecto
 
 ```text
 .
