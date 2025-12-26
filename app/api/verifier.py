@@ -79,21 +79,21 @@ async def verify(body: VerifyRequest, db: DBDep):
 
     # --- B. VERIFICACIÓN ANTI-REPLAY (Capa Protocolo) ---
     if body.nonce:
+        # Usamos una transacción explícita para asegurar lectura consistente
+        # Nota: En SQLite el aislamiento es SERIALIZABLE por defecto en escrituras.
         q = select(Nonce).where(Nonce.value == body.nonce)
         nonce_row = (await db.execute(q)).scalar_one_or_none()
         
         now_utc = datetime.now(timezone.utc)
         
-        # 1. ¿Existe el nonce?
         if not nonce_row:
             return _fail("nonce_invalid", {"msg": "Nonce desconocido o falso."})
         
-        # 2. ¿Ya fue usado? (Prevención de doble gasto)
+        # PREVENCIÓN DE DOBLE GASTO (RACE CONDITION CHECK)
         if nonce_row.consumed_at is not None:
             return _fail("nonce_used", {"msg": "Este reto ya fue utilizado. Posible ataque de repetición."})
         
-        # 3. ¿Ha caducado?
-        # Aseguramos robustez de zona horaria
+        # Validación de TTL
         db_expire = nonce_row.expires_at
         if db_expire.tzinfo is None:
             db_expire = db_expire.replace(tzinfo=timezone.utc)
@@ -101,9 +101,14 @@ async def verify(body: VerifyRequest, db: DBDep):
         if db_expire < now_utc:
             return _fail("nonce_expired", {"msg": "El tiempo del reto ha expirado."})
             
-        # 4. Consumir el nonce (Atomicidad)
+        # CONSUMO ATÓMICO
         nonce_row.consumed_at = now_utc
-        await db.commit()
+        try:
+            await db.commit()
+        except Exception:
+            # Si ocurre un error de concurrencia al commit, rechazamos
+            await db.rollback()
+            return _fail("concurrency_error", {"msg": "Conflicto de concurrencia al consumir nonce."})
 
     # --- C. VERIFICACIÓN DE ESTADO (Capa de Ciclo de Vida) ---
     if not jti:
