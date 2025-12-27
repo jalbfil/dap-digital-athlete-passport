@@ -86,30 +86,27 @@ async def holder_ui(request: Request, db: DBDep):
 @router.get("/{jti}/qr.png", summary="Generar QR (Backend Local)")
 async def holder_qr(jti: str, db: DBDep):
     """
-    Genera el QR localmente usando la librería qrcode (sin APIs externas).
-    Recupera el JTI para asegurar que el escaneo coincide con el endpoint de verificación.
+    Genera el QR localmente usando la librería qrcode.
+    Incluye cabeceras de caché para optimizar el rendimiento en el cliente.
     """
-    # 1. Validamos que la credencial existe (Seguridad)
+    # 1. Validamos que la credencial existe
     query = select(Credential).where(Credential.jti == jti)
     result = await db.execute(query)
     credential = result.scalar_one_or_none()
     
     if not credential:
-        # Generamos un QR de error o lanzamos 404
         raise HTTPException(status_code=404, detail="Credencial no encontrada")
 
-    # 2. Generación Robusta en Memoria
+    # 2. Generación Robusta 
     try:
-        # Creamos el objeto QR
         qr = qrcode.QRCode(
             version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_M, # M = Medium (bueno para móviles)
+            error_correction=qrcode.constants.ERROR_CORRECT_M,
             box_size=10,
             border=4,
         )
         
-        # NOTA: Codificamos el JTI porque el Verificador (/verifier/scan) espera un JTI.
-        # Si quisieras validación offline total, podrías poner 'credential.token'.
+        # Codificamos el JTI (Puntero a la credencial)
         qr.add_data(credential.jti)
         qr.make(fit=True)
 
@@ -119,7 +116,15 @@ async def holder_qr(jti: str, db: DBDep):
         img.save(buffer, format="PNG")
         buffer.seek(0)
         
-        return Response(content=buffer.getvalue(), media_type="image/png")
+        # MEJORA: Cache-Control para evitar regeneración innecesaria
+        return Response(
+            content=buffer.getvalue(), 
+            media_type="image/png",
+            headers={"Cache-Control": "public, max-age=31536000, immutable"}
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generando QR: {str(e)}")
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generando QR: {str(e)}")
