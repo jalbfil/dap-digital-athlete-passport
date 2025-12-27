@@ -3,133 +3,76 @@
 {% block title %}DAP — Holder (Cartera){% endblock %}
 
 {% block content %}
-<div class="grid grid-2">
-    
-    <div class="card">
-        <div class="card-pad">
-            <h2>📱 Mi Cartera Digital</h2>
-            <p class="muted" style="margin-bottom: 20px;">
-                Introduce el identificador único (JTI) que te proporcionó el emisor para cargar tu credencial.
-            </p>
-
-            <div class="form-group">
-                <label for="holder-jti">Identificador de Credencial (JTI)</label>
-                <input type="text" id="holder-jti" placeholder="Ej: vc-hyrox-..." autocomplete="off">
-            </div>
-
-            <button id="holder-load" class="btn primary" style="width: 100%; margin-top: 10px;">
-                Cargar Credencial
-            </button>
-        </div>
+<div class="container">
+    <div style="margin-bottom: 30px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
+        <h2>📱 Mi Cartera Digital</h2>
+        <p class="muted">
+            Aquí aparecen tus credenciales almacenadas y decodificadas automáticamente.
+        </p>
     </div>
 
-    <div class="card">
-        <div class="card-pad">
-            <h2>Detalles de la Credencial</h2>
-            
-            <div style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border);">
-                <pre id="holder-summary" style="margin: 0; white-space: pre-wrap; color: var(--accent); font-family: 'Consolas', monospace;">— Datos no cargados —</pre>
-            </div>
+    {% if credentials %}
+        <div class="grid grid-2">
+            {% for cred in credentials %}
+            <div class="card">
+                <div class="card-pad">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
+                        <h3 style="margin: 0; color: var(--primary);">{{ cred.event }}</h3>
+                        <span class="muted" style="font-size: 0.8em;">{{ cred.date }}</span>
+                    </div>
 
-            <label>Token Firmado (Fragmento)</label>
-            <div class="code" id="holder-token-snippet" style="min-height: 60px; font-size: 0.8em; color: var(--muted); margin-bottom: 20px;">
-                —
-            </div>
+                    <div style="background: rgba(0,0,0,0.05); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border);">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <div>
+                                <small class="muted" style="display: block;">ATLETA</small>
+                                <strong>{{ cred.name }}</strong>
+                            </div>
+                            <div>
+                                <small class="muted" style="display: block;">DORSAL</small>
+                                <strong>{{ cred.bib }}</strong>
+                            </div>
+                            <div style="grid-column: span 2; margin-top: 5px; border-top: 1px dashed var(--border); padding-top: 5px;">
+                                <small class="muted" style="display: block;">TIEMPO OFICIAL</small>
+                                <strong style="font-size: 1.2em; color: var(--accent);">{{ cred.time }}</strong>
+                            </div>
+                        </div>
+                    </div>
 
-            <div style="text-align: center; margin: 20px 0;">
-                <img id="holder-qr-img" src="" alt="Código QR" style="display: none; max-width: 200px; margin: 0 auto; border: 4px solid white; border-radius: 8px;">
-                <p class="muted" style="font-size: 0.8em; margin-top: 10px;">Escanea este QR con la app del Verificador</p>
-            </div>
+                    <details>
+                        <summary style="cursor: pointer; font-size: 0.8em; color: var(--muted);">Ver Token Firmado (JWT)</summary>
+                        <div class="code" style="font-size: 0.7em; margin-top: 10px; word-break: break-all;">
+                            {{ cred.token }}
+                        </div>
+                    </details>
+                    
+                    <div style="margin-top: 15px; font-size: 0.8em; color: var(--muted);">
+                        ID: <span style="font-family: monospace;">{{ cred.jti }}</span>
+                    </div>
 
-            <div class="row" style="justify-content: space-between; border-top: 1px solid var(--border); padding-top: 15px;">
-                <a href="#" id="holder-open-qr" target="_blank" class="btn disabled" style="flex: 1; text-align: center; margin-right: 10px;">
-                    ⬇️ Descargar QR
-                </a>
-                <a href="#" id="holder-open-json" target="_blank" class="btn disabled" style="flex: 1; text-align: center;">
-                    📄 Ver JSON Completo
-                </a>
+                    <div style="margin-top: 20px; padding-top: 20px; border-top: 1px dashed var(--border); text-align: center;">
+                        <img src="/holder/{{ cred.jti }}/qr.png" 
+                            alt="QR Verificación" 
+                            loading="lazy"
+                            style="border-radius: 8px; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 150px;">
+                        <p class="muted" style="font-size: 0.8em; margin-top: 10px;">
+                            Escanea para verificar
+                        </p>
+                    </div>
+
+                </div>
             </div>
+            {% endfor %}
         </div>
-    </div>
-
+    {% else %}
+        <div class="card" style="text-align: center; padding: 50px;">
+            <div style="font-size: 3em; margin-bottom: 20px;">📭</div>
+            <h3>No hay credenciales</h3>
+            <p class="muted">No se han encontrado credenciales válidas en la base de datos.</p>
+            <a href="/issuer" class="btn primary" style="margin-top: 20px;">Ir al Emisor</a>
+        </div>
+    {% endif %}
 </div>
 {% endblock %}
 
 {% block scripts %}
-<script>
-    // Lógica específica del Holder
-    const btnHolderLoad = document.getElementById("holder-load");
-    
-    if (btnHolderLoad) {
-        btnHolderLoad.addEventListener("click", async () => {
-            const jtiInput = document.getElementById("holder-jti");
-            const jti = jtiInput.value.trim();
-            
-            const tok = document.getElementById("holder-token-snippet");
-            const sum = document.getElementById("holder-summary");
-            const qrImg = document.getElementById("holder-qr-img");
-            const btnQr = document.getElementById("holder-open-qr");
-            const btnJson = document.getElementById("holder-open-json");
-
-            // Reset UI
-            tok.textContent = "Cargando...";
-            sum.textContent = "...";
-            qrImg.style.display = "none";
-            
-            if (!jti) {
-                alert("Por favor, introduce un JTI válido.");
-                tok.textContent = "—";
-                sum.textContent = "—";
-                return;
-            }
-
-            try {
-                // 1. Obtener JSON de la credencial
-                const resp = await fetch(`/holder/${encodeURIComponent(jti)}.json`);
-                
-                if (!resp.ok) {
-                    const err = await resp.json();
-                    throw new Error(err.detail || "Error al buscar credencial");
-                }
-                
-                const data = await resp.json();
-
-                // 2. Mostrar datos
-                // Mostramos un snippet del token
-                tok.textContent = (data.token || "").slice(0, 100) + "...";
-                
-                // Parseamos el token para mostrar el resumen (esto se hace en cliente solo para visualizar)
-                // En un caso real, usaríamos una librería JWT, aquí hacemos un parseo básico del payload
-                try {
-                    const payloadPart = data.token.split('.')[1];
-                    const decodedPayload = JSON.parse(atob(payloadPart));
-                    const subj = decodedPayload.vc.credentialSubject || {};
-                    
-                    sum.textContent = `EVENTO:  ${subj.event || "N/A"}\n` +
-                                      `ATLETA:  ${subj.name || "N/A"}\n` +
-                                      `DORSAL:  ${subj.bib || "N/A"}\n` +
-                                      `TIEMPO:  ${subj.result?.time || "N/A"}`;
-                } catch(e) {
-                    sum.textContent = "No se pudieron decodificar los datos del token para vista previa.";
-                }
-
-                // 3. Cargar QR
-                const qrUrl = `/holder/${encodeURIComponent(jti)}/qr.png`;
-                qrImg.src = qrUrl;
-                qrImg.style.display = "block";
-                
-                // 4. Activar botones
-                btnQr.href = qrUrl;
-                btnQr.classList.remove("disabled");
-                btnJson.href = `/holder/${encodeURIComponent(jti)}.json`;
-                btnJson.classList.remove("disabled");
-
-            } catch (e) {
-                alert("Error: " + e.message);
-                tok.textContent = "Error";
-                sum.textContent = "No encontrada";
-            }
-        });
-    }
-</script>
 {% endblock %}
