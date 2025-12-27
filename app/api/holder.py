@@ -9,21 +9,19 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+# Importamos jwt para decodificar los datos visuales
+import jwt
+# Importamos qrcode para la generación robusta
+import qrcode
+
 from app.db.session import get_db
 from app.db.models import Credential
-
-try:
-    import qrcode
-except ImportError:
-    qrcode = None # Manejo elegante si falta la dependencia
 
 # --- CONFIGURACIÓN ---
 router = APIRouter(prefix="/holder", tags=["holder"])
 
-# Configuración de plantillas robusta (independiente del SO)
-# Subimos dos niveles (parents[1]) para encontrar la carpeta 'templates'
-BASE_DIR = Path(__file__).resolve().parents[1]
-TEMPLATES_DIR = BASE_DIR / "templates"
+BASE_DIR = Path(__file__).resolve().parents[2]
+TEMPLATES_DIR = BASE_DIR / "app" / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 # --- DEPENDENCIES ---
@@ -31,74 +29,113 @@ DBDep = Annotated[AsyncSession, Depends(get_db)]
 
 # --- ENDPOINTS ---
 
-@router.get("", response_class=HTMLResponse, summary="Cartera Digital (UI)")
-async def holder_page(request: Request):
+@router.get("", response_class=HTMLResponse, summary="Cartera Digital (Dashboard)")
+async def holder_ui(request: Request, db: DBDep):
     """
-    Renderiza la interfaz visual del Holder (Cartera).
-    Permite al atleta ver sus credenciales y generar QRs.
+    Renderiza la Cartera Digital con todas las credenciales activas.
+    Combina la persistencia del código nuevo con la robustez visual.
     """
-    return templates.TemplateResponse("holder.html", {"request": request})
+    # 1. Recuperamos credenciales
+    result = await db.execute(
+        select(Credential).where(Credential.status == "valid").order_by(Credential.created_at.desc())
+    )
+    creds_rows = result.scalars().all()
 
-@router.get("/{jti}.json", summary="Obtener Credencial Raw")
-async def holder_json(jti: str, db: DBDep):
-    """
-    Devuelve los datos crudos de la credencial en formato JSON.
-    Útil para depuración o para que otras apps consuman la credencial.
-    """
-    # Consulta optimizada: Buscamos por JTI (que debería tener índice en BD)
-    query = select(Credential).where(Credential.jti == jti)
-    result = await db.execute(query)
-    credential = result.scalar_one_or_none()
+    # 2. Procesamos datos para la vista (SSR)
+    display_creds = []
     
-    if not credential:
-        raise HTTPException(status_code=404, detail=f"Credencial con JTI '{jti}' no encontrada.")
-    
-    # Devolvemos solo lo necesario, evitando exponer campos internos de la BD
-    return JSONResponse({
-        "jti": credential.jti, 
-        "status": credential.status, 
-        "token": credential.token,
-        "issued_at": credential.created_at.isoformat() if credential.created_at else None
+    for c in creds_rows:
+        parsed_data = {
+            "jti": c.jti,
+            "token": c.token,
+            "event": "Desconocido",
+            "bib": "-",
+            "name": "-",
+            "time": "-",
+            "date": c.created_at.strftime("%Y-%m-%d %H:%M") if c.created_at else ""
+        }
+        
+        try:
+            # Decodificación segura para visualización
+            payload = jwt.decode(c.token, options={"verify_signature": False})
+            vc_subject = payload.get("vc", {}).get("credentialSubject", {})
+            
+            # Corrección de anidamiento (si existe)
+            if "credentialSubject" in vc_subject:
+                vc_subject = vc_subject["credentialSubject"]
+            
+            parsed_data["event"] = vc_subject.get("event", "Evento Genérico")
+            parsed_data["bib"] = vc_subject.get("bib", "-")
+            parsed_data["name"] = vc_subject.get("name", "Atleta")
+            
+            if "result" in vc_subject and isinstance(vc_subject["result"], dict):
+                parsed_data["time"] = vc_subject["result"].get("time", "-")
+            else:
+                parsed_data["time"] = vc_subject.get("time", "-")
+                
+        except Exception:
+            pass
+            
+        display_creds.append(parsed_data)
+
+    return templates.TemplateResponse("holder.html", {
+        "request": request,
+        "credentials": display_creds
     })
 
-@router.get("/{jti}/qr.png", summary="Generar QR de Presentación")
+@router.get("/{jti}/qr.png", summary="Generar QR (Backend Local)")
 async def holder_qr(jti: str, db: DBDep):
     """
-    Genera dinámicamente un código QR que contiene el Token JWT completo.
-    Esto permite la presentación 'offline' o física ante un Verificador.
+    Genera el QR localmente usando la librería qrcode (sin APIs externas).
+    Recupera el JTI para asegurar que el escaneo coincide con el endpoint de verificación.
     """
-    # 1. Validación de dependencias
-    if qrcode is None:
-        raise HTTPException(
-            status_code=500, 
-            detail="Error de configuración: La librería 'qrcode[pil]' no está instalada."
-        )
-
-    # 2. Recuperación del Token
+    # 1. Validamos que la credencial existe (Seguridad)
     query = select(Credential).where(Credential.jti == jti)
     result = await db.execute(query)
     credential = result.scalar_one_or_none()
     
     if not credential:
-        raise HTTPException(status_code=404, detail="Credencial no encontrada para generar QR.")
+        # Generamos un QR de error o lanzamos 404
+        raise HTTPException(status_code=404, detail="Credencial no encontrada")
 
-    if not credential.token:
-        raise HTTPException(status_code=422, detail="La credencial existe pero no tiene un token válido asociado.")
-
-    # 3. Generación del QR en Memoria (IO Bound)
-    # Usamos BytesIO para no escribir archivos temporales en disco (mejor rendimiento y limpieza)
+    # 2. Generación Robusta en Memoria
     try:
-        # Creamos el QR con el contenido del Token JWT
-        qr_image = qrcode.make(credential.token)
+        # Creamos el objeto QR
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_M, # M = Medium (bueno para móviles)
+            box_size=10,
+            border=4,
+        )
+        
+        # NOTA: Codificamos el JTI porque el Verificador (/verifier/scan) espera un JTI.
+        # Si quisieras validación offline total, podrías poner 'credential.token'.
+        qr.add_data(credential.jti)
+        qr.make(fit=True)
+
+        img = qr.make_image(fill_color="black", back_color="white")
         
         buffer = BytesIO()
-        qr_image.save(buffer, format="PNG")
-        
-        # CRÍTICO: Rebobinar el puntero del buffer al inicio
-        # Si no hacemos esto, al leer el buffer estará al final y enviará 0 bytes.
+        img.save(buffer, format="PNG")
         buffer.seek(0)
         
         return Response(content=buffer.getvalue(), media_type="image/png")
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error generando imagen QR: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error generando QR: {str(e)}")
+
+@router.get("/{jti}.json", summary="JSON Raw")
+async def holder_json(jti: str, db: DBDep):
+    """Endpoint auxiliar para ver el JSON crudo (Debug)."""
+    query = select(Credential).where(Credential.jti == jti)
+    result = await db.execute(query)
+    credential = result.scalar_one_or_none()
+    
+    if not credential:
+        raise HTTPException(status_code=404, detail="No encontrado")
+    
+    return JSONResponse({
+        "jti": credential.jti, 
+        "token": credential.token,
+        "status": credential.status
+    })
